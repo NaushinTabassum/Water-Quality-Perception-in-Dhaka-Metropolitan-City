@@ -22,6 +22,7 @@ library(RColorBrewer)
 library(MASS)
 library(Hmisc)
 library(effects)
+library(caret)
 ```
 
 ### Reading data
@@ -457,7 +458,7 @@ plot(predictorEffects(b, ~ b.low.clarity+b.foul.taste+b.foul.smell+b.health.issu
    axes=list(grid=TRUE,
                  x=list(rug=FALSE),
  y=list(style= "stacked", ticks=list(at=c(0.0, 0.5,1.0)))),
- lines=list(multiline=T,col=c("#F65233", "#E9Ee59", "sky blue"), lwd=2),
+ lines=list(multiline=T,col=c("#DD6761", "#F2A950", "#7ABD91"), lwd=2),
    lattice=list(key.args=list(columns=2, cex=0.9),
    strip=list(factor.names=T, cex=0.8)))
 
@@ -470,7 +471,7 @@ plot(predictorEffects(b, ~ b.iron+change.any+economic.change),
    axes=list(grid=TRUE,
                  x=list(rug=FALSE),
  y=list(style= "stacked", ticks=list(at=c(0.0, 0.5,1.0)))),
- lines=list(multiline=T,col=c("#F65233", "#E9Ee59", "sky blue"), lwd=2),
+ lines=list(multiline=T,col=c("#DD6761", "#F2A950", "#7ABD91"), lwd=2),
    lattice=list(key.args=list(columns=2, cex=0.9),
    strip=list(factor.names=T, cex=0.8)))
 
@@ -524,7 +525,7 @@ plot(predictorEffects(a, ~ a.low.clarity+a.health.issues+a.foul.taste+a.foul.sme
      axes=list(grid=TRUE,
                  x=list(rug=FALSE),
  y=list(style= "stacked", ticks=list(at=c(0.0, 0.5,1.0)))),
- lines=list(multiline=T, lwd=2,col=c("#F65233", "#E9Ee59", "sky blue")),
+ lines=list(multiline=T, lwd=2,col=c("#DD6761", "#F2A950", "#7ABD91")),
    lattice=list(key.args=list(columns=2, cex=0.9),
    strip=list(cex=0.75)))
 ```
@@ -535,7 +536,7 @@ plot(predictorEffects(a, ~ a.iron+change.any+water.logging),
      axes=list(grid=TRUE,
                  x=list(rug=FALSE),
  y=list(style= "stacked", ticks=list(at=c(0.0, 0.5,1.0)))),
- lines=list(multiline=T, lwd=2,col=c("#F65233", "#E9Ee59", "sky blue")),
+ lines=list(multiline=T, lwd=2,col=c("#DD6761", "#F2A950", "#7ABD91")),
    lattice=list(key.args=list(columns=2, cex=0.9),
    strip=list(cex=0.75)))
 ```
