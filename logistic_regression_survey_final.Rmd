@@ -1,0 +1,576 @@
+---
+title: "A Study on Dhaka WASA Supplied Drinking Water, User Perception and  Practice"
+output:
+  word_document: default
+  pdf_document: default
+  html_document:
+    df_print: paged
+---
+### Setup
+
+```{r setup II, eval=TRUE, echo = TRUE}
+knitr::opts_chunk$set(eval = TRUE, echo = TRUE)
+```
+
+### Loading packages
+
+```{r load-packages, message = FALSE, echo = TRUE}
+library(ggplot2)
+library(dplyr)
+library(reshape2)
+library(RColorBrewer)
+library(MASS)
+library(Hmisc)
+library(effects)
+```
+
+### Reading data
+
+```{r read-data, message=FALSE}
+wq <- read.csv("waterquality.csv", stringsAsFactors = TRUE)
+```
+
+
+### Preparing Data
+
+```{r message=FALSE, include=T}
+wq$zone.number <- ifelse(is.na(wq$zone.number),"1",wq$zone.number)
+wq$zone.number <- factor(wq$zone.number)
+
+#merging
+#overall satisfaction 
+wq$before.overall.satisfaction <- 
+  ifelse(is.na(wq$before.overall.satisfaction),
+         wq$overall.satisfaction,wq$before.overall.satisfaction)
+
+wq$before.overall.satisfaction<-
+  gsub(1,"dissatisfied",wq$before.overall.satisfaction)
+wq$before.overall.satisfaction<-
+  gsub(2,"neutral",wq$before.overall.satisfaction)
+wq$before.overall.satisfaction<-
+  gsub(3,"satisfied",wq$before.overall.satisfaction)
+wq$before.overall.satisfaction<-
+  gsub(4,"very.dissatisfied",wq$before.overall.satisfaction)
+wq$before.overall.satisfaction<-
+  gsub(5,"very.satisfied",wq$before.overall.satisfaction)
+
+wq$before.overall.satisfaction <- factor(wq$before.overall.satisfaction)
+
+wq$after.overall.satisfaction <- 
+  ifelse(is.na(wq$after.overall.satisfaction),
+         wq$overall.satisfaction,wq$after.overall.satisfaction)
+
+wq$after.overall.satisfaction<-
+  gsub(1,"dissatisfied",wq$after.overall.satisfaction)
+wq$after.overall.satisfaction<-
+  gsub(2,"neutral",wq$after.overall.satisfaction)
+wq$after.overall.satisfaction<-
+  gsub(3,"satisfied",wq$after.overall.satisfaction)
+wq$after.overall.satisfaction<-
+  gsub(4,"very.dissatisfied",wq$after.overall.satisfaction)
+wq$after.overall.satisfaction<-
+  gsub(5,"very.satisfied",wq$after.overall.satisfaction)
+
+wq$after.overall.satisfaction <- factor(wq$after.overall.satisfaction)
+
+#foul taste
+wq$before.foul.taste <- 
+  ifelse(is.na(wq$before.foul.taste),
+         wq$general.foul.taste,wq$before.foul.taste)
+
+wq$before.foul.taste<-
+  gsub(1,"No",wq$before.foul.taste)
+wq$before.foul.taste<-
+  gsub(2,"Yes",wq$before.foul.taste)
+
+wq$before.foul.taste <- factor(wq$before.foul.taste)
+
+wq$after.foul.taste <- 
+  ifelse(is.na(wq$after.foul.taste),
+         wq$general.foul.taste,wq$after.foul.taste)
+
+wq$after.foul.taste<-
+  gsub(1,"No",wq$after.foul.taste)
+wq$after.foul.taste<-
+  gsub(2,"Yes",wq$after.foul.taste)
+
+wq$after.foul.taste <- factor(wq$after.foul.taste)
+
+#foul smell
+wq$before.foul.smell <- 
+  ifelse(is.na(wq$before.foul.smell),
+         wq$general.foul.smell,wq$before.foul.smell)
+
+wq$before.foul.smell<-
+  gsub(1,"No",wq$before.foul.smell)
+wq$before.foul.smell<-
+  gsub(2,"Yes",wq$before.foul.smell)
+
+wq$before.foul.smell <- factor(wq$before.foul.smell)
+
+wq$after.foul.smell <- 
+  ifelse(is.na(wq$after.foul.smell),
+         wq$general.foul.smell,wq$after.foul.smell)
+
+wq$after.foul.smell<-
+  gsub(1,"No",wq$after.foul.smell)
+wq$after.foul.smell<-
+  gsub(2,"Yes",wq$after.foul.smell)
+
+wq$after.foul.smell <- factor(wq$after.foul.smell)
+
+#lack of clarity
+wq$before.low.clarity <- 
+  ifelse(is.na(wq$before.low.clarity),
+         wq$general.low.clarity,wq$before.low.clarity)
+
+wq$before.low.clarity<-
+  gsub(1,"No",wq$before.low.clarity)
+wq$before.low.clarity<-
+  gsub(2,"Yes",wq$before.low.clarity)
+
+wq$before.low.clarity <- factor(wq$before.low.clarity)
+
+wq$after.low.clarity <- 
+  ifelse(is.na(wq$after.low.clarity),
+         wq$general.low.clarity,wq$after.low.clarity)
+
+wq$after.low.clarity<-
+  gsub(1,"No",wq$after.low.clarity)
+wq$after.low.clarity<-
+  gsub(2,"Yes",wq$after.low.clarity)
+
+wq$after.low.clarity <- factor(wq$after.low.clarity)
+
+#iron
+wq$before.iron <- 
+  ifelse(is.na(wq$before.iron),
+         wq$general.iron,wq$before.iron)
+
+wq$before.iron <-
+  gsub(1,"No",wq$before.iron)
+wq$before.iron<-
+  gsub(2,"Yes",wq$before.iron)
+
+wq$before.iron <- factor(wq$before.iron)
+
+wq$after.iron <- 
+  ifelse(is.na(wq$after.iron),
+         wq$general.iron,wq$after.iron)
+
+wq$after.iron <-
+  gsub(1,"No",wq$after.iron)
+wq$after.iron<-
+  gsub(2,"Yes",wq$after.iron)
+
+wq$after.iron <- factor(wq$after.iron)
+
+#health issues
+wq$before.health.issues <- 
+  ifelse(is.na(wq$before.health.issues),
+         wq$general.health.issues,wq$before.health.issues)
+
+wq$before.health.issues <-
+  gsub(1,"No",wq$before.health.issues)
+wq$before.health.issues<-
+  gsub(2,"Yes",wq$before.health.issues)
+
+wq$before.health.issues <- factor(wq$before.health.issues)
+
+wq$after.health.issues <- 
+  ifelse(is.na(wq$after.health.issues),
+         wq$general.health.issues,wq$after.health.issues)
+
+wq$after.health.issues <-
+  gsub(1,"No",wq$after.health.issues)
+wq$after.health.issues<-
+  gsub(2,"Yes",wq$after.health.issues)
+
+wq$after.health.issues <- factor(wq$after.health.issues)
+
+#cleaning treatment method values
+wq$treatment.method <- 
+  gsub("boil it, no treatment|boil it","boil",wq$treatment.method)
+
+wq$treatment.method <- 
+  gsub("added bleach/chlorine","bleach",wq$treatment.method)
+
+wq$treatment.method <- 
+  gsub("used a water filter","filter",wq$treatment.method)
+
+#reducing the levels of target variable
+wq <- wq %>% mutate(b.o.s.=before.overall.satisfaction,
+                    a.o.s.=after.overall.satisfaction)
+wq$b.o.s. <- gsub("very.","",wq$b.o.s.)
+wq$a.o.s. <- gsub("very.","",wq$a.o.s.)
+wq$b.o.s. <- factor(wq$b.o.s.)
+wq$a.o.s. <- factor(wq$a.o.s.)
+wq$economic.change <- gsub("Decreased income","Decreased", wq$economic.change)
+wq$economic.change <- gsub("Increased income","Increased", wq$economic.change)
+wq$economic.change <- factor(wq$economic.change, levels=c("Unchanged","Decreased","Increased")) 
+
+#renaming drinking.water.source
+wq <- wq %>% 
+  rename("source"="drinking.water.source")
+names(wq) <- gsub("before","b",names(wq))
+names(wq) <- gsub("after","a",names(wq))
+```
+
+
+```{r message=FALSE, include=T}
+levels(wq$b.overall.satisfaction)<- c("very.dissatisfied","dissatisfied",
+                                      "neutral","satisfied","very.satisfied")
+levels(wq$a.overall.satisfaction)<- c("very.dissatisfied","dissatisfied",
+                                      "neutral","satisfied","very.satisfied")
+levels(wq$b.o.s.)<- c("dissatisfied", "neutral","satisfied")
+levels(wq$a.o.s.)<- c("dissatisfied", "neutral","satisfied")
+levels(wq$monthly.income)<- c("0~10,000","10,000~25,000","25,000~50,000",
+                              "50,000~1,00,000","1,00,000~higher")
+levels(wq$water.filter) <- c("No filter",
+                             "Sediment Filter/ Ceramic Filter",
+                             "Activated Carbon","UltraFiltration",
+                             "Reverse Osmosis","Ultraviolet","other") 
+levels(wq$source) <- c("Piped water supply","Community well",
+                                      "Public tap",
+                                      "WASA water supply through lorries",
+                                      "Others")
+
+
+levels(wq$treatment.method) <- c("no treatment","boil","filter",
+                                 "boil, filter",
+                                 "boil, bleach",
+                                 "bleach, filter",
+                          "boil, bleach, filter")
+levels(wq$zone.number) <- c("1","2","3","4","5","6","7","8","9","10") 
+levels(wq$oh.cleaning.freq) <- c("Do not have a one",
+                                 "once in 5 years","once in a year",
+                                 "once in 6 months","once in a month","others")
+levels(wq$ug.cleaning.freq) <- c("Do not have a one",
+                                 "once in 5 years","once in a year",
+                                 "once in 6 months","once in a month","others")
+```
+
+```{r echo=FALSE}
+wq <- wq[,-(23:28)]
+```
+
+
+* * *
+
+### partitionining the data
+```{r}
+set.seed(1234)
+
+indexSet <- sample(2, nrow(wq), replace = T, prob = c(0.7,0.3))
+train_wq <- wq[indexSet==1,]
+test_wq <- wq[indexSet==2,]
+```
+
+
+## Ordinal Logistic Regression
+
+### Before the Pandemic
+
+```{r}
+b <- polr(b.o.s. ~ economic.change+
+            b.low.clarity + b.foul.smell + b.health.issues + b.foul.taste + 
+    b.iron + b.foul.smell:b.iron + b.foul.smell:b.health.issues+ change.any:b.foul.taste, 
+          data = train_wq, Hess=TRUE,method="logistic",
+          na.action = na.pass)
+summary(b)
+```
+
+
+
+```{r}
+ctable <- coef(summary(b))
+p <- pnorm(abs(ctable[, "t value"]), lower.tail = FALSE) * 2
+ctable <- cbind(ctable, "p value" = p)
+ctable
+```
+```{r}
+car::Anova(b)
+```
+
+
+```{r}
+OR.before <- exp(coef(b))
+as.data.frame(OR.before)
+```
+
+
+
+```{r}
+addterm(b, ~.^2, test = "Chisq")
+```
+
+<div>b2 <- stepAIC(b, ~.^2)</div>
+```{r include=FALSE}
+b2 <- stepAIC(b, ~.^2)
+```
+
+```{r}
+summary(b2)
+```
+
+```{r}
+b2$anova
+```
+
+```{r}
+b3 <- update(b2, Hess=TRUE)
+pr.b <- profile(b3)
+confint(pr.b)
+```
+
+
+### After the Pandemic
+
+```{r}
+a <- polr(a.o.s. ~ 
+            a.low.clarity+a.foul.smell+
+            a.foul.taste+a.iron+a.foul.smell:a.health.issues + water.logging:a.low.clarity+
+            + a.foul.taste:a.foul.smell+ change.any:a.low.clarity, 
+          data = train_wq, Hess=TRUE,
+          na.action = na.pass)
+summary(a)
+```
+
+```{r}
+ctable1 <- coef(summary(a))
+p1 <- pnorm(abs(ctable1[, "t value"]), lower.tail = FALSE) * 2
+ctable1 <- cbind(ctable1, "p value" = p1)
+ctable1
+```
+
+```{r}
+car::Anova(a, test.statistic="LR")
+```
+
+```{r}
+OR.after <- exp(coef(a))
+as.data.frame(OR.after)
+```
+
+
+```{r}
+addterm(a, ~.^2, test = "Chisq")
+```
+
+<div>a2 <- stepAIC(a, ~.^2)</div>
+```{r include=FALSE}
+a2 <- stepAIC(a, ~.^2)
+```
+
+```{r}
+summary(a2)
+```
+
+```{r}
+a2$anova
+```
+
+```{r}
+a3 <- update(a2, Hess=TRUE)
+pr.a <- profile(a3)
+confint(pr.a)
+```
+
+
+### Change in the Water Quality
+
+
+```{r}
+c1 <- glm(change.any ~ economic.change+b.health.issues+ a.foul.taste+
+            a.health.issues,data=train_wq, family = binomial(link = "logit"))
+summary(c1)
+```
+```{r}
+car::Anova(c1, test.statistic="LR")
+```
+
+
+<div>c2 <- stepAIC(c, ~.^2)</div>
+```{r include=FALSE}
+c2 <- stepAIC(c1)
+```
+
+```{r}
+summary(c2)
+```
+
+```{r}
+c2$anova
+```
+
+```{r}
+pr.c <- profile(c2)
+confint(pr.c)
+```
+
+```{r}
+OR.change <- exp(coef(c1))
+as.data.frame(OR.change)
+```
+
+
+##Cross validation (30 fold)
+
+### b.o.s. model
+
+```{r}
+#specifying the type of training method used and the number of folds
+
+ctrlspecs <- trainControl(method = "cv", number=30,classProbs = TRUE)
+
+#set random seed
+set.seed(1234)
+tune.gridpolr <- expand.grid(method=c("logistic", "probit"))
+modelb1 <- train(b.o.s. ~ economic.change+
+            b.low.clarity + b.foul.smell + b.health.issues + b.foul.taste + 
+    b.iron + b.foul.smell:b.iron + b.foul.smell:b.health.issues+ change.any:b.foul.taste,
+                 tuneGrid=tune.gridpolr,data=train_wq, method="polr",metric="Accuracy",
+          trControl=ctrlspecs)
+print(modelb1)
+```
+
+```{r}
+ctrlspecs1 <- trainControl(method = "cv", number=30,classProbs = TRUE, summaryFunction = mnLogLoss)
+
+#set random seed
+set.seed(1234)
+tune.gridpolr <- expand.grid(method=c("logistic", "probit"))
+modelb2 <- train(b.o.s. ~ economic.change+
+            b.low.clarity + b.foul.smell + b.health.issues + b.foul.taste + 
+    b.iron + b.foul.smell:b.iron + b.foul.smell:b.health.issues+ change.any:b.foul.taste,
+                 tuneGrid=tune.gridpolr,data=train_wq, method="polr",metric="logLoss",
+          trControl=ctrlspecs1)
+print(modelb2)
+varImp(modelb2)
+```
+
+
+```{r fig.height=9, fig.width=12}
+
+plot(predictorEffects(b, ~ b.low.clarity+b.foul.taste+b.foul.smell+b.health.issues), 
+      style="stacked",
+   axes=list(grid=TRUE,
+                 x=list(rug=FALSE),
+ y=list(style= "stacked", ticks=list(at=c(0.0, 0.5,1.0)))),
+ lines=list(multiline=T,col=c("#F65233", "#E9Ee59", "sky blue"), lwd=2),
+   lattice=list(key.args=list(columns=2, cex=0.9),
+   strip=list(factor.names=T, cex=0.8)))
+
+```
+
+```{r fig.height=9, fig.width=12}
+
+plot(predictorEffects(b, ~ b.iron+change.any+economic.change), 
+      style="stacked",
+   axes=list(grid=TRUE,
+                 x=list(rug=FALSE),
+ y=list(style= "stacked", ticks=list(at=c(0.0, 0.5,1.0)))),
+ lines=list(multiline=T,col=c("#F65233", "#E9Ee59", "sky blue"), lwd=2),
+   lattice=list(key.args=list(columns=2, cex=0.9),
+   strip=list(factor.names=T, cex=0.8)))
+
+```
+
+## a.o.s. model
+
+```{r}
+#specifying the type of training method used and the number of folds
+
+ctrlspecs <- trainControl(method = "cv", number=30,classProbs = TRUE)
+
+#set random seed
+set.seed(1234)
+tune.gridpolr <- expand.grid(method=c("logistic","probit"))
+modela1 <- train(a.o.s. ~ 
+            a.low.clarity+a.foul.smell+
+            a.foul.taste+a.iron+a.foul.smell:a.health.issues + water.logging:a.low.clarity+
+            + a.foul.taste:a.foul.smell+ change.any:a.low.clarity,
+                 tuneGrid=tune.gridpolr,data=train_wq, method="polr",metric="Accuracy",
+          trControl=ctrlspecs)
+print(modela1)
+```
+
+```{r}
+summary(modela1)
+```
+
+```{r}
+#specifying the type of training method used and the number of folds
+
+ctrlspecs1 <- trainControl(method = "cv", number=30,classProbs = TRUE, summaryFunction = mnLogLoss)
+
+#set random seed
+set.seed(1234)
+tune.gridpolr <- expand.grid(method=c("logistic","probit"))
+modela2 <- train(a.o.s. ~ 
+            a.low.clarity+a.foul.smell+
+            a.foul.taste+a.iron+a.foul.smell:a.health.issues + water.logging:a.low.clarity+
+            + a.foul.taste:a.foul.smell+ change.any:a.low.clarity,
+                 tuneGrid=tune.gridpolr,data=train_wq, method="polr",metric="logLoss",
+          trControl=ctrlspecs1)
+print(modela2)
+varImp(modela2)
+```
+
+
+```{r fig.height=8, fig.width=12}
+
+plot(predictorEffects(a, ~ a.low.clarity+a.health.issues+a.foul.taste+a.foul.smell), 
+     axes=list(grid=TRUE,
+                 x=list(rug=FALSE),
+ y=list(style= "stacked", ticks=list(at=c(0.0, 0.5,1.0)))),
+ lines=list(multiline=T, lwd=2,col=c("#F65233", "#E9Ee59", "sky blue")),
+   lattice=list(key.args=list(columns=2, cex=0.9),
+   strip=list(cex=0.75)))
+```
+
+```{r fig.height=8, fig.width=12}
+
+plot(predictorEffects(a, ~ a.iron+change.any+water.logging), 
+     axes=list(grid=TRUE,
+                 x=list(rug=FALSE),
+ y=list(style= "stacked", ticks=list(at=c(0.0, 0.5,1.0)))),
+ lines=list(multiline=T, lwd=2,col=c("#F65233", "#E9Ee59", "sky blue")),
+   lattice=list(key.args=list(columns=2, cex=0.9),
+   strip=list(cex=0.75)))
+```
+
+## change.any model
+
+```{r}
+#specifying the type of training method used and the number of folds
+
+ctrlspecs <- trainControl(method = "cv", number=30,
+                          savePredictions = "all", classProbs = TRUE)
+#set random seed
+set.seed(1234)
+modelc1 <- train(change.any ~ economic.change+b.health.issues+ 
+            a.health.issues+a.foul.taste
+                 ,data=train_wq, method="glm", family=binomial,
+          trControl=ctrlspecs)
+print(modelc1)
+```
+
+```{r}
+summary(modelc1)
+```
+
+
+```{r}
+varImp(modelc1)
+```
+
+```{r fig.height=9, fig.width=12}
+
+plot(predictorEffects(c1, ~ a.health.issues+b.health.issues+economic.change+a.foul.taste), 
+     axes=list(grid=TRUE),
+ lines=list(col=c("maroon", "dark blue"), lwd=2),
+   lattice=list(key.args=list(columns=1),
+   strip=list(factor.names=T)))
+
+```
