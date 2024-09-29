@@ -17,7 +17,6 @@ knitr::opts_chunk$set(eval = TRUE, echo = TRUE)
 ```{r load-packages, message = FALSE, echo = TRUE}
 library(ggplot2)
 library(dplyr)
-library(statsr)
 library(reshape2)
 library(RColorBrewer)
 library(vcd)
