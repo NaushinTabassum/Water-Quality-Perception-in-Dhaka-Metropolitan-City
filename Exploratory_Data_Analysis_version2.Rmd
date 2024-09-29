@@ -1,0 +1,1598 @@
+---
+title: "A Study on Dhaka WASA Supplied Drinking Water, User Perception and  Practice"
+output:
+  word_document: default
+  pdf_document: default
+  html_document:
+    df_print: paged
+---
+### Setup
+
+```{r setup II, eval=TRUE, echo = TRUE}
+knitr::opts_chunk$set(eval = TRUE, echo = TRUE)
+```
+
+### Loading packages
+
+```{r load-packages, message = FALSE, echo = TRUE}
+library(ggplot2)
+library(dplyr)
+library(statsr)
+library(reshape2)
+library(RColorBrewer)
+library(vcd)
+```
+
+### Reading data
+
+```{r read-data, echo = TRUE}
+wq <- read.csv("waterquality.csv", stringsAsFactors = TRUE)
+```
+
+* * *
+
+## Part 1: Data
+
+This study is done as a part of the undergraduate B.Sc. thesis program under the Department of Civil Engineering, BUET by Ahnaf Shahriyar and Naushin Tabassum. The goal was to collect data on Dhaka WASA supplied water quality based on users' perception. It also addresses the change in supplied water quality before and during the COVID-19 pandemic. The data were collected from 26 July, 2020 to 27 August, 2020.
+
+The data were collected online through a questionnaire survey. 365 random respondents  from all over the Dhaka city participated in the survey. So, the data can be generalizable. The survey was entirely observational and did not include any random assignment in the process. Therefore, causality cannot be made from these insights.
+
+However, the generalizability of the data could be limited due to possible self-selection bias and recall bias. The first one caused by the voluntary nature of the questionnaire survey participation and the second one might be caused by the misperception of some the respondents or their reluctance to response accurately to the questions.Moreover,as the data collection process was completely online, those without the access of internet or necessary device (smartphone, tablet or pc) could not participate in the survey which might be the source of sampling bias in the study. 
+
+The raw data was cleaned before this analysis and the tidy data set contains 352 observations and 34 variables. 
+```{r data dimension}
+#dim(wq)
+```
+
+Now, we may be interested in the variables:
+```{r data variables}
+names(wq)
+```
+
+The code-book explaining these variables can be checked out [here](https://rpubs.com/NaushinTabassum/651806).
+
+
+* * *
+
+
+## Part 2: Exploratory Data Analysis
+
+### People's perception on the change in water quality during COVID-19 pandemic
+
+```{r include=FALSE}
+# it is seen from the later analysis that zone 1 has less very.dissatisfied #responses so less sensitive to change
+wq[is.na(wq)] <- 1
+```
+
+Firstly, we would observe the total number of respondents (i.e.total households) from each MODS zone and how many of them have found any change in the supplied water quality due to the pandemic. 
+```{r message=FALSE}
+#factorizing the zone numbers
+wq$zone.number <- as.factor(wq$zone.number) 
+covideffect <- wq %>% group_by(zone.number) %>% 
+                      summarise(Total_Households=n(),
+                      prop.zones=round(100*n()/dim(wq)[1],digits=1),
+                      changed=sum(change.any=="Yes"), 
+                      unchanged=sum(change.any=="No")) %>%
+  mutate(prop.changed=round(100*changed/Total_Households,digit=2))
+
+covideffect <- as.data.frame(covideffect)
+covideffect
+```
+
+Now, creating a piechart to show the relative proportion of the respondents' area of residence:
+```{r include=FALSE}
+#creating piechart to show relative proportion of the respondents' area of residence 
+pie <- ggplot(covideffect, aes(x = 3, y = prop.zones, fill = zone.number)) +
+  geom_bar(width = 1, stat = "identity", color = "white") +
+  coord_polar("y", start = 0)+
+  geom_text(aes(label = prop.zones,x=3.0),position = position_stack(vjust = 
+                                          0.5), color = "black", size=2.65)+
+  theme_bw()+xlim(2,3.5)+
+  theme(plot.title = element_text(hjust=0.5),
+        axis.line = element_blank(),
+        axis.text = element_blank(),
+        axis.ticks = element_blank(),text= element_text(size=12,face="bold"))+
+  labs(fill = "MODS zone",
+       x = NULL,
+       y = NULL,
+       title = "Respondents' Area of Residence (%)")
+```
+```{r}
+pie
+```
+
+The piechart shows that we have relatively fewer amount of data from the zones- 7, 8, 9 and 10. Majority of the respondents are from zone-3 and zone-6.
+
+## Change in Water Quality Before and after Pandemic
+
+We are going to use a bar-plot to show the relative percentages of covid effect on water for each zone.
+```{r}
+change <- ggplot(data=wq, aes(x=zone.number, fill=change.any))+geom_bar(position="fill")+theme_bw()+
+  scale_y_continuous(labels = c(0,25,50,75,100))+
+       labs(title="", 
+            x= "MODS zone",
+            y="Change in water quality (relative %)", fill="Response")+
+   theme(text = element_text(size=12, face="bold"),legend.position = c(0.08,1.05),legend.direction = "horizontal",legend.title = element_blank(),legend.key.size = unit(0.25,"cm"))+
+    scale_fill_manual(values=c("#cc444b", "#2d6a4f"))
+change
+```
+
+It shows that zone-7 has a higher percentage of changed water quality approximately 22%.
+
+
+****
+
+## Users' Practices
+
+### Drinking Water Source
+
+```{r}
+sources <- wq %>% select(zone.number, drinking.water.source)
+sources <- sources %>% group_by(zone.number) %>% 
+            summarise(Piped.water.supply= sum(drinking.water.source=="Piped water supply"),
+                      Community.well= sum(drinking.water.source=="Community well"),
+          Lorries=sum(drinking.water.source=="WASA water supply through lorries"),
+                                Public.tap= sum(drinking.water.source=="Public tap"),
+                                Others= sum(drinking.water.source=="Other"),
+          Total=n()
+                    )
+sources.melt <- sources %>%
+  melt(id.vars=c("zone.number","Total"), 
+                 measure.vars=c("Piped.water.supply",
+                                "Community.well","Lorries",
+                                "Public.tap","Others"))%>% 
+  group_by(zone.number) %>% mutate(prop.labs=round(100*value/Total,digit=1))
+sources.melt
+
+sources.melt <- as.data.frame(sources.melt)
+write.csv(sources.melt, "sources.csv", row.names = FALSE)
+#sources.melt
+
+source_chart <- ggplot(sources.melt,aes(x="",prop.labs,fill=variable))+
+   geom_bar(position="fill",stat="identity")+scale_y_continuous(labels = c(0,25,50,75,100))+
+  geom_text(aes(label = prop.labs),
+            position = position_fill(vjust=.5), color = "black", size=2.5)+
+  facet_wrap(~zone.number,nrow=1)+theme_bw()+
+  labs(x= "MODS zone",
+            y="Source of Drinking Water (User %)", fill="Response")+
+  theme(text = element_text(size=12,face="bold"), axis.text.x = element_text(angle=90,size=12,face="bold"),legend.position = "top",legend.title = element_blank(),legend.key.size = unit(0.25,"cm"))+
+  scale_fill_manual(values=c("#FFCDB2", "#FFB4A2", "#E5989B", "#B5838D", "#6D6875"))
+source_chart
+```
+
+```{r}
+logging <- wq %>% select(zone.number, water.logging)
+logging <- logging %>% group_by(zone.number) %>% 
+            summarise(Yes= sum(water.logging=="Yes"),
+                      No= sum(water.logging=="No"),
+          Total=n()
+                    )
+logging.melt <- logging %>%
+  melt(id.vars=c("zone.number","Total"), 
+                 measure.vars=c("Yes",
+                                "No"))%>% 
+  group_by(zone.number) %>% mutate(prop.labs=round(100*value/Total,digit=1))
+logging.melt <- as.data.frame(logging.melt)
+write.csv(logging.melt, "logging.csv", row.names = FALSE)
+```
+
+## i. Analysis of Changed Water Quality Cases
+
+Here, we are going to filter out the unchanged water quality cases. And include only the columns that refer to the before and after water quality issues and overall satisfaction. Thus, the dimension of the previous data-frame reduces to only 49 observations.
+
+<!-- 1. Before and After Water Quality Issues:-->
+
+```{r}
+changedquality <- wq %>% filter(change.any=="Yes") %>% select(11:20)
+#dimension of the `changedquality` data-frame
+#dim(changedquality)
+```
+
+<!-- Summary: -->
+
+```{r message=FALSE}
+# creating a long data-frame by melting the `before water quality` columns
+
+before.long <- changedquality %>% melt(id.vars = 
+                c("after.foul.taste","after.foul.smell", 
+                  "after.low.clarity", "after.iron","after.health.issues"), 
+                measure.vars = c("before.foul.taste","before.foul.smell", 
+                                 "before.low.clarity","before.iron",         
+                                 "before.health.issues"), 
+                value.name = "before.value") %>%   
+  rename(water.quality= variable) 
+
+# creating a long data-frame by melting the `after water quality` columns
+
+after.long <- changedquality %>%
+  melt(id.vars=c("before.foul.taste","before.foul.smell", 
+                 "before.low.clarity","before.iron",                
+                 "before.health.issues"),
+       measure.vars=c("after.foul.taste","after.foul.smell", 
+                      "after.low.clarity",   
+                      "after.iron","after.health.issues"),
+       value.name = "after.value") %>%
+  rename(water.quality= variable)
+
+# summarizing the `before.long` data-frame based on the `before water quality` values
+
+before <- before.long %>% group_by(water.quality) %>%  
+       summarise(Yes=sum(before.value=="Yes"), No=sum(before.value=="No"))
+
+# summarizing the `after.long` data-frame based on the `after water quality` values
+
+after <- after.long %>% group_by(water.quality) %>%  
+       summarise(Yes=sum(after.value=="Yes"), No=sum(after.value=="No"))
+
+# side by side comparison of the before and after water quality
+
+comparison <- rbind(before, after)
+comparison <- comparison %>% 
+                      mutate(prop.yes=round(100*Yes/(Yes+No),digit=2),
+                      prop.no=round(100*No/(Yes+No),digit=2))
+####comparison
+# coercing the summary tibble to a data-frame and adding another column `type` referring to the before 
+# and after conditions
+
+response <- as.data.frame(comparison) %>%   
+              mutate(type=factor(rep(c("before","after"),each=5), 
+                                 levels=c("before","after"))) %>% 
+              melt(id.vars=c("water.quality", "type","prop.yes", 
+                             "prop.no"),measure.vars=c("Yes","No"))
+
+# removing `before.` and `after.` from the beginning of each water quality factors
+
+response$water.quality <- gsub("before.|after.","",response$water.quality)
+response
+```
+
+```{r}
+xt <- xtabs(value~type+water.quality+variable,data=response)
+dimnames(xt)[2] <- list(c("smell", "taste","health", "iron", "clarity"))
+names(dimnames(xt)) <- c("Response", "Water Quality Issues"," ")
+structable(aperm(xt))
+
+sieve(xt[, , "Yes"], shade = TRUE)
+
+```
+
+### 1. Before and After Water Quality Issues:
+
+```{r}
+
+# plotting comparison of the responses to the water quality issues before and after the pandemic situation
+
+before_after_issues <- ggplot(response,aes(water.quality,prop.yes,fill=type))+
+   geom_bar(position="dodge",stat="identity", width=0.8)+
+  geom_text(aes(label = prop.yes), vjust=1.6,
+            position = position_dodge(0.9), color = "black", size=2.7)+
+  labs(title="",
+            x= "Water Quality Issues",
+            y="'YES' responses (%)", fill="Before or After Pandemic")+
+  theme_bw()+scale_fill_manual(values=c("#2d6a4f", "#cc444b"))+
+  theme(text = element_text(size=12, face="bold"), legend.position=c(0.15,0.9),legend.title=element_blank(),legend.key.size = unit(0.25,"cm"),
+        legend.direction = "horizontal")
+before_after_issues
+```
+
+
+
+It is evident from the barplots that, the households where supplied water quality has changed during the pandemic has changed for the worse. Foul taste and health issues have been increased the most among water quality issues  whereas visible presence of iron in the supplied water has increased in less amount.
+
+```{r}
+# to show all the columns of the summary tibbles in the final document setting dplyr.width to `Inf`
+options(dplyr.width = Inf)
+```
+
+
+
+
+
+**Zonewise Overall Satisfaction Before and After the Pandemic**
+
+
+We would like to explore the zonewise overall satisfaction with the supplied water quality before and after the pandemic occurrence.
+
+<!--Before:-->
+
+```{r message=FALSE}
+# including only those cases where change has occurred in the water quality
+
+os <- wq %>%  filter(change.any=="Yes") %>%
+  select(zone.number,before.overall.satisfaction,
+                    after.overall.satisfaction)
+
+#summarizing the overall satisfaction before pandemic grouped by the zone numbers 
+
+before.os <- os%>%
+  group_by(zone.number) %>% summarise(
+    very.dissatisfied=sum(before.overall.satisfaction=="Very Dissatisfied"),
+    dissatisfied=sum(before.overall.satisfaction=="Dissatisfied"),
+    neutral=sum(before.overall.satisfaction=="Neutral"),
+    satisfied=sum(before.overall.satisfaction=="Satisfied"),
+    very.satisfied=sum(before.overall.satisfaction=="Very Satisfied"),
+    Total=n()) 
+
+####before.os
+before.os <- before.os%>%
+  melt(id.vars=c("zone.number","Total"), 
+                 measure.vars=c("very.dissatisfied",
+                                "dissatisfied","neutral",
+                                "satisfied","very.satisfied"))%>% 
+  group_by(zone.number) %>% mutate(prop.labs=round(100*value/Total,digit=1))
+```
+
+
+<!--After:-->
+
+```{r message=FALSE}
+#summarizing the overall satisfaction after pandemic grouped by the zone numbers 
+
+after.os <- os%>%
+  group_by(zone.number) %>% summarise(
+    very.dissatisfied=sum(after.overall.satisfaction=="Very Dissatisfied"),
+    dissatisfied=sum(after.overall.satisfaction=="Dissatisfied"),
+    neutral=sum(after.overall.satisfaction=="Neutral"),
+    satisfied=sum(after.overall.satisfaction=="Satisfied"),
+    very.satisfied=sum(after.overall.satisfaction=="Very Satisfied"),
+    Total=n())
+
+####after.os
+after.os <- after.os %>%
+  melt(id.vars=c("zone.number","Total"), measure.vars=c("very.dissatisfied",
+                                    "dissatisfied","neutral",
+                                   "satisfied","very.satisfied")) %>%
+  group_by(zone.number) %>% mutate(prop.labs=round(100*value/Total,digit=1))
+```
+```{r}
+#combining the before and after situations
+
+total.os <- rbind(before.os, after.os)
+
+#coercing the tibble to a data-frame
+
+total.os <- as.data.frame(total.os)
+
+# adding another column referring to the `before` or `after` condition
+
+total.os <- total.os %>% 
+  mutate(type=factor(rep(c("before","after"),each=dim(total.os)[1]/2),
+             levels=c("before","after")),
+  response=factor(rep(rep(c("very.dissatisfied","dissatisfied","neutral",
+                            "satisfied","very.satisfied"),
+                          each=length(unique(total.os$zone.number))),2), 
+  levels=c("very.dissatisfied","dissatisfied","neutral","satisfied",
+                                                   "very.satisfied")))
+```
+
+### 2. Zonewise Overall Satisfaction Before and After the Pandemic with the Supplied Water Quality
+
+```{r}
+#plotting the zonewise result
+
+ggplot(total.os,aes(type,value,fill=response))+
+   geom_bar(position="stack",stat="identity")+
+  geom_text(aes(label = value),
+            position = position_stack(vjust=.5), color = "black", size=2.5)+
+  facet_wrap(~zone.number,nrow=1)+
+  labs(x= "MODS zone",
+            y="Overall Satisfaction", fill="Response")+theme_bw()+
+  theme(text = element_text(size=12), axis.text.x = 
+          element_text(angle=90,size=9))
+
+os_before_after <- ggplot(total.os,aes(type,value,fill=response))+
+   geom_bar(position="fill",stat="identity")+
+  geom_text(aes(label = prop.labs),
+            position = position_fill(vjust=.5), color = "black", size=2.3)+
+  facet_wrap(~zone.number,nrow=1)+
+  labs(x= "MODS zone",
+            y="Overall Satisfaction (response %)", 
+       fill="Response")+theme_bw()+scale_y_continuous(labels = 
+                                   c(0,25,50,75,100))+
+  theme(text = element_text(size=10), axis.text.x = 
+          element_text(angle=90,size=12, face="bold"),axis.title.x=element_blank())+
+   theme(text = element_text(size=12, face="bold"), legend.position="top",legend.title=element_blank(),legend.key.size = unit(0.25,"cm"),
+         legend.direction = "horizontal")+
+  scale_fill_manual(values=c("#cc444b", "#F68813", "#FFDA47", "#52b788", "#2d6a4f"))
+os_before_after
+```
+
+The plots show that at zones-3,4 and 8 "very.dissatisfied" responses have risen after the pandemic occurrence. Dissatisfaction seems to reduce in zone-1 whereas zones-9 and 10 responses indicate no change here. Satisfactory responses have reduced in the other zones. Zones-7 is excluded from the graph as respondents from these areas have not observed any change in the supplied water quality after the pandemic has occurred.
+
+
+**Overall Satisfaction Before and After the Pandemic Irrespective of MODS Zones**
+
+**Summary:**
+
+<!--Summary:-->
+
+```{r}
+#overall before and after satisfaction 
+
+os1 <- os %>% select(before.overall.satisfaction,
+                    after.overall.satisfaction)
+before.os1 <- os1 %>%
+  summarise(
+    very.dissatisfied=sum(before.overall.satisfaction=="Very Dissatisfied"),
+    dissatisfied=sum(before.overall.satisfaction=="Dissatisfied"),
+    neutral=sum(before.overall.satisfaction=="Neutral"),
+    satisfied=sum(before.overall.satisfaction=="Satisfied"),
+    very.satisfied=sum(before.overall.satisfaction=="Very Satisfied"),) %>%
+  melt(measure.vars=c("very.dissatisfied","dissatisfied","neutral",
+                                          "satisfied","very.satisfied")) %>%
+  mutate(relative.percentage=round(100*value/sum(value),digit=2))
+
+after.os1 <- os1 %>% summarise(
+    very.dissatisfied=sum(after.overall.satisfaction=="Very Dissatisfied"),
+    dissatisfied=sum(after.overall.satisfaction=="Dissatisfied"),
+    neutral=sum(after.overall.satisfaction=="Neutral"),
+    satisfied=sum(after.overall.satisfaction=="Satisfied"),
+    very.satisfied=sum(after.overall.satisfaction=="Very Satisfied")) %>%
+  melt(measure.vars=c("very.dissatisfied","dissatisfied","neutral",
+                                          "satisfied","very.satisfied")) %>%
+  mutate(relative.percentage=round(100*value/sum(value),digit=2))
+
+total.os1 <- rbind(before.os1,after.os1) 
+total.os1 <- as.data.frame(total.os1)
+total.os1 <- total.os1 %>% mutate(type=factor(rep(c("before","after"),each=5),
+                                 levels=c("before","after"))) %>%
+  rename(response=variable)
+total.os1
+```
+
+### 3. Overall Satisfaction Before and After the Pandemic Irrespective of MODS Zones
+
+```{r}
+#plotting the overall result
+
+os<-ggplot(total.os1,aes(x=type,y=value,fill=response))+
+   geom_bar(position="dodge",stat="identity",width=0.8)+
+  geom_text(aes(label = value), vjust=1.6,
+            position = position_dodge(0.9), color = "black", size=3)+
+  labs(x= "",y="Overall Satisfaction", fill="Response")+theme_bw()+
+  theme(text = element_text(size=12, face="bold"),legend.position = "top",legend.direction = "horizontal",
+        legend.title = element_blank(),legend.key.size = unit(0.25,"cm"))+
+  scale_fill_manual(values=c("#cc444b", "#F68813", "#FFDA47", "#52b788", "#2d6a4f"))
+os
+```
+
+From the graph, it is clear that the overall satisfaction with the supplied water has decreased among those respondents who have found any change in the water quality during the COVID-19 pandemic.
+
+
+
+**Effect of Last Time Cleaning of Plumbing Systems and Tanks on Overall Satisfaction  Before and After the Pandemic**
+
+We may like to know if the overall satisfaction is related to the last time the respondent cleaned their plumbing system, tank and reservoir.
+
+<!--Before:-->
+
+```{r message=FALSE}
+# including only those cases where change has occurred in the water quality
+
+os2 <- wq %>%  filter(change.any=="Yes") %>%
+  select(last.time.cleaned,before.overall.satisfaction,
+                    after.overall.satisfaction)
+
+#removing the string ` ago` from the end to make the plot cleaner
+os2$last.time.cleaned <- gsub(" ago","",os2$last.time.cleaned)
+
+#summarizing the overall satisfaction before pandemic grouped by the last time cleaned
+
+before.os2 <- os2%>%
+  group_by(last.time.cleaned) %>% summarise(
+    very.dissatisfied=sum(before.overall.satisfaction=="Very Dissatisfied"),
+    dissatisfied=sum(before.overall.satisfaction=="Dissatisfied"),
+    neutral=sum(before.overall.satisfaction=="Neutral"),
+    satisfied=sum(before.overall.satisfaction=="Satisfied"),
+    very.satisfied=sum(before.overall.satisfaction=="Very Satisfied"),
+    Total=n()) 
+
+####before.os2
+before.os2 <- before.os2%>%
+  melt(id.vars=c("last.time.cleaned","Total"), 
+       measure.vars=c("very.dissatisfied",
+                       "dissatisfied","neutral",
+                        "satisfied","very.satisfied"))%>%
+  group_by(last.time.cleaned) %>% 
+  mutate(prop.labs=round(100*value/Total,digit=2))
+```
+
+<!--After:-->
+
+```{r message=FALSE}
+#summarizing the overall satisfaction after pandemic grouped by the last time cleaned
+
+after.os2 <- os2%>%
+  group_by(last.time.cleaned) %>% summarise(
+    very.dissatisfied=sum(after.overall.satisfaction=="Very Dissatisfied"),
+    dissatisfied=sum(after.overall.satisfaction=="Dissatisfied"),
+    neutral=sum(after.overall.satisfaction=="Neutral"),
+    satisfied=sum(after.overall.satisfaction=="Satisfied"),
+    very.satisfied=sum(after.overall.satisfaction=="Very Satisfied"),
+    Total=n())
+
+####after.os2
+
+after.os2 <- after.os2 %>%
+  melt(id.vars=c("last.time.cleaned","Total"), 
+       measure.vars=c("very.dissatisfied",
+                       "dissatisfied","neutral",
+                        "satisfied","very.satisfied"))%>%
+  group_by(last.time.cleaned) %>% 
+  mutate(prop.labs=round(100*value/Total,digit=2))
+```
+```{r}
+#combining the before and after situations
+
+total.os2 <- rbind(before.os2, after.os2)
+
+#coercing the tibble to a data-frame
+
+total.os2 <- as.data.frame(total.os2)
+
+# adding another column referring to the `before` or `after` condition
+
+total.os2 <- total.os2 %>% 
+    mutate(type=factor(rep(c("before","after"),each=dim(total.os2)[1]/2),
+                            levels=c("before","after")),
+           response=factor(rep(rep(c("very.dissatisfied",
+            "dissatisfied","neutral","satisfied","very.satisfied"),each=3),2),
+            levels=c("very.dissatisfied","dissatisfied", 
+                     "neutral","satisfied","very.satisfied")))
+```
+
+### 4. Effect of Last Time Cleaning of Plumbing Systems and Tanks on Overall Satisfaction with the Supplied Water Quality  Before and After the Pandemic
+
+```{r}
+#plotting the result
+
+ggplot(total.os2,aes(x="",value,fill=response))+
+   geom_bar(position="dodge",stat="identity")+
+   geom_text(aes(label = value), vjust=0.5,
+            position = position_dodge(0.9), color = "black", size=3)+
+  facet_grid(type~last.time.cleaned)+
+  labs(x= "Last time cleaned",
+            y="Overall Satisfaction", fill="Response")+theme_bw()+
+  theme(text = element_text(size=12))
+
+lc_before_after <- ggplot(total.os2,aes(x=type,value,fill=response))+
+   geom_bar(position="fill",stat="identity",width=0.6)+
+  theme_bw()+scale_y_continuous(labels =c(0,25,50,75,100))+                  
+  geom_text(aes(label = prop.labs),
+            position = position_fill(vjust=.5), color = "black", size=2.7)+
+  facet_wrap(~last.time.cleaned)+
+  labs(x= "Last time cleaned",
+            y="Overall Satisfaction (response %)", 
+  fill="Response")+
+  theme(text = element_text(size=12,face="bold"), legend.position="top",legend.title=element_blank(),legend.key.size = unit(0.25,"cm"),
+         legend.direction = "horizontal")+
+   scale_fill_manual(values=c("#cc444b", "#F68813", "#FFDA47", "#52b788", "#2d6a4f"))
+lc_before_after
+```
+
+So, it can be observed that those who have cleaned their pipes and tanks less than 6 months ago are more satisfied with the water quality than the other two groups. Moreover their responses increase in dissatisfaction due the pandemic are also relatively lower. Those who have cleaned within a month are the most dissatisfied. Again, some `very.satisfied` cases have emerged after the pandemic where the respondents performed the last cleaning more than 6 months ago which seems to be contradictory to the normal expectation. So, there must be other reason behind this unusual responses than the last time they have cleaned them. 
+
+
+
+
+**Effect of Water Treatment Method on Overall Satisfaction with the Supplied Water Quality  Before and After the Pandemic**
+
+Now, let us explore the effect of water treatment method on the overall satisfaction of those who found their water quality to be changed during the pandemic.
+
+<!--Before:-->
+
+```{r message=FALSE}
+# including only those cases where change has occurred in the water quality
+
+os3 <- wq %>%  filter(change.any=="Yes") %>%
+  select(treatment.method,before.overall.satisfaction,
+                    after.overall.satisfaction)
+os3$treatment.method <- gsub("added |used a |/chlorine| it|water ","",os3$treatment.method)
+os3$treatment.method <- gsub("boil, no treatment","no treatment",os3$treatment.method)
+#summarizing the overall satisfaction before pandemic grouped by the treatment method
+
+before.os3 <- os3%>%
+  group_by(treatment.method) %>% summarise(
+    very.dissatisfied=sum(before.overall.satisfaction=="Very Dissatisfied"),
+    dissatisfied=sum(before.overall.satisfaction=="Dissatisfied"),
+    neutral=sum(before.overall.satisfaction=="Neutral"),
+    satisfied=sum(before.overall.satisfaction=="Satisfied"),
+    very.satisfied=sum(before.overall.satisfaction=="Very Satisfied"),
+    Total=n()) 
+
+####before.os3
+before.os3 <- before.os3%>%
+  melt(id.vars=c("treatment.method","Total"), 
+       measure.vars=c("very.dissatisfied",
+                       "dissatisfied","neutral",
+                        "satisfied","very.satisfied"))%>%
+  group_by(treatment.method) %>% 
+  mutate(prop.labs=round(100*value/Total,digit=2)) 
+```
+
+<!--After:-->
+
+```{r message=FALSE}
+#summarizing the overall satisfaction after pandemic grouped by the treatment method
+
+after.os3 <- os3%>%
+  group_by(treatment.method) %>% summarise(
+    very.dissatisfied=sum(after.overall.satisfaction=="Very Dissatisfied"),
+    dissatisfied=sum(after.overall.satisfaction=="Dissatisfied"),
+    neutral=sum(after.overall.satisfaction=="Neutral"),
+    satisfied=sum(after.overall.satisfaction=="Satisfied"),
+    very.satisfied=sum(after.overall.satisfaction=="Very Satisfied"),
+    Total=n())
+
+####after.os3
+
+after.os3 <- after.os3 %>%
+  melt(id.vars=c("treatment.method","Total"), 
+       measure.vars=c("very.dissatisfied",
+                       "dissatisfied","neutral",
+                        "satisfied","very.satisfied"))%>%
+  group_by(treatment.method) %>% 
+  mutate(prop.labs=round(100*value/Total,digit=2))
+```
+```{r}
+#combining the before and after situations
+
+total.os3 <- rbind(before.os3, after.os3)
+
+#coercing the tibble to a data-frame
+
+total.os3 <- as.data.frame(total.os3)
+total.os3
+
+# adding another column referring to the `before` or `after` condition
+
+total.os3 <- total.os3 %>% 
+    mutate(type=factor(rep(c("before","after"),each=dim(total.os3)[1]/2),
+                            levels=c("before","after")),
+           response=factor(rep(rep(c("very.dissatisfied",
+            "dissatisfied","neutral","satisfied","very.satisfied"),each=5),2),
+            levels=c("very.dissatisfied","dissatisfied", 
+                     "neutral","satisfied","very.satisfied")))
+```
+
+### 5. Effect of Water Treatment Method on Overall Satisfaction  Before and After the Pandemic
+
+```{r}
+#plotting the result
+
+ggplot(total.os3,aes(x="",value,fill=response))+
+   geom_bar(position="dodge",stat="identity")+
+  geom_text(aes(label = value), vjust=.5,
+            position = position_dodge(0.9), color = "black", size=3)+
+  facet_grid(type~treatment.method)+theme_bw()+
+  labs(x= "Treatment Method",
+            y="Overall Satisfaction", fill="Response")+
+  theme(text = element_text(size=12))
+
+tr_before_after <- ggplot(total.os3,aes(x=type,value,fill=response))+
+   geom_bar(position="fill",stat="identity", width=0.8)+
+  scale_y_continuous(labels =c(0,25,50,75,100))+
+  geom_text(aes(label = prop.labs),
+            position = position_fill(vjust=.5), color = "black", size=3)+
+  facet_grid(~treatment.method)+theme_bw()+
+  labs(x= "Treatment Method",
+            y="Overall Satisfaction (response %)", fill="Response")+
+  theme(text = element_text(size=10,face="bold"), legend.position="top",legend.title=element_blank(),legend.key.size = unit(0.25,"cm"),
+             legend.direction = "horizontal")+
+       scale_fill_manual(values=c("#cc444b", "#F68813", "#FFDA47", "#52b788", "#2d6a4f"))
+tr_before_after
+```
+
+<!--The result shows that those who have found their water quality changed, indeed use some treatment method which does not include adding beach/chlorine. In both cases, overall satisfaction can be observed to decrease after the pandemic occurrence. Water filter cases have less `satisfied` responses than those in the boiling cases after the pandemic.-->  
+
+
+**Overall Satisfaction with the Supplied Water Quality Before and After the Pandemic Vs. Change in Income**
+
+Exploring the effect of income change due to the pandemic on the overall satisfaction of those who found their water quality to be changed during the pandemic.
+
+<!--Before:-->
+
+```{r message=FALSE}
+# including only those cases where change has occurred in the water quality
+
+os4 <- wq %>%  filter(change.any=="Yes") %>%
+  select(economic.change,before.overall.satisfaction,
+                    after.overall.satisfaction)
+
+#summarizing the overall satisfaction before pandemic grouped by the economic change
+
+before.os4 <- os4%>%
+  group_by(economic.change) %>% summarise(
+    very.dissatisfied=sum(before.overall.satisfaction=="Very Dissatisfied"),
+    dissatisfied=sum(before.overall.satisfaction=="Dissatisfied"),
+    neutral=sum(before.overall.satisfaction=="Neutral"),
+    satisfied=sum(before.overall.satisfaction=="Satisfied"),
+    very.satisfied=sum(before.overall.satisfaction=="Very Satisfied"),
+    Total=n()) 
+
+####before.os4
+before.os4 <- before.os4%>%
+  melt(id.vars=c("economic.change","Total"), 
+       measure.vars=c("very.dissatisfied",
+                       "dissatisfied","neutral",
+                        "satisfied","very.satisfied"))%>%
+  group_by(economic.change) %>% 
+  mutate(prop.labs=round(100*value/Total,digit=2)) 
+
+```
+
+<!--After:-->
+
+```{r message=FALSE}
+#summarizing the overall satisfaction after pandemic grouped by the treatment method
+
+after.os4 <- os4%>%
+  group_by(economic.change) %>% summarise(
+    very.dissatisfied=sum(after.overall.satisfaction=="Very Dissatisfied"),
+    dissatisfied=sum(after.overall.satisfaction=="Dissatisfied"),
+    neutral=sum(after.overall.satisfaction=="Neutral"),
+    satisfied=sum(after.overall.satisfaction=="Satisfied"),
+    very.satisfied=sum(after.overall.satisfaction=="Very Satisfied"),
+    Total=n())
+
+####after.os4
+
+after.os4 <- after.os4 %>%
+  melt(id.vars=c("economic.change","Total"), 
+       measure.vars=c("very.dissatisfied",
+                       "dissatisfied","neutral",
+                        "satisfied","very.satisfied"))%>%
+  group_by(economic.change) %>% 
+  mutate(prop.labs=round(100*value/Total,digit=2))
+```
+```{r include=FALSE}
+#combining the before and after situations
+
+total.os4 <- rbind(before.os4, after.os4)
+
+#coercing the tibble to a data-frame
+
+total.os4 <- as.data.frame(total.os4)
+
+# adding another column referring to the `before` or `after` condition
+
+total.os4 <- total.os4 %>% 
+    mutate(type=factor(rep(c("before","after"),each=dim(total.os4)[1]/2),
+                            levels=c("before","after")),
+           response=factor(rep(rep(c("very.dissatisfied",
+            "dissatisfied","neutral","satisfied","very.satisfied"),
+            each=length(unique(total.os4$economic.change))),2),
+            levels=c("very.dissatisfied","dissatisfied", 
+                     "neutral","satisfied","very.satisfied")))
+```
+
+### 6. Overall Satisfaction with the Supplied Water QualityBefore and After the Pandemic Vs. Change in Income
+
+```{r}
+#plotting the result
+economy1 <- ggplot(total.os4,aes("",value,fill=response))+
+   geom_bar(position="dodge",stat="identity")+
+   geom_text(aes(label = value), vjust=0.5,
+            position = position_dodge(0.9), color = "black", size=2.8)+
+  facet_grid(type~economic.change)+theme_bw()+
+  labs(x= "Economic Change",
+            y="Overall Satisfaction", fill="Response")+
+  theme(text = element_text(size=12))
+
+economy2 <- ggplot(total.os4,aes(type,value,fill=response))+
+   geom_bar(position="fill",stat="identity",width=0.7)+
+  geom_text(aes(label = prop.labs),
+            position = position_fill(vjust=.5), color = "black", size=2.8)+
+  facet_wrap(~economic.change,nrow=1)+theme_bw()+
+  scale_y_continuous(labels =c(0,25,50,75,100))+
+  labs(x= "Economic Change",
+            y="Overall Satisfaction (response %)", fill="Response")+
+  theme(text = element_text(size=12,face="bold"), legend.position="top",legend.title=element_blank(),legend.key.size = unit(0.25,"cm"),
+           legend.direction = "horizontal")+
+     scale_fill_manual(values=c("#cc444b", "#F68813", "#FFDA47", "#52b788", "#2d6a4f"))
+```
+```{r}
+economy1
+economy2
+```
+
+According to the barplots, respondents who have unchanged monthly income even after the pandemic are overall less dissatisfied with the supplied water quality after the pandemic.
+
+
+****
+
+
+## ii. Analysis of Unchanged Water Quality Cases
+
+Here, we are going to filter out the changed water quality cases. And include only the columns that refer to the general water quality issues and overall satisfaction. Thus, the dimension of the previous data-frame reduces to 303 observations.
+
+<!-- 1. General Water Quality Issues:-->
+
+```{r}
+unchangedquality <- wq %>% filter(change.any=="No") %>% select(23:27)
+#dimension of the `unchangedquality` data-frame
+dim(unchangedquality)
+```
+<!-- Summary: -->
+```{r message=FALSE}
+# creating a long data-frame by melting the `general water quality` columns
+
+general.long <- unchangedquality %>% melt( 
+                measure.vars = c("general.foul.taste","general.foul.smell", 
+                                 "general.low.clarity","general.iron", 
+                                 "general.health.issues"), 
+                value.name = "general.value") %>%   
+  rename(water.quality= variable) 
+
+
+
+# summarizing the `general.long` data-frame based on the `general water quality` values
+
+general <- general.long %>% group_by(water.quality) %>%  
+    summarise(Yes=sum(general.value=="Yes"), No=sum(general.value=="No"),
+              Total=n()) %>% 
+    mutate(prop.yes=round(100*Yes/(Yes+No),digit=2))
+
+####general
+
+# coercing the summary tibble to a data-frame 
+
+general <- as.data.frame(general) %>%   
+              melt(id.vars=c("water.quality","Total"),
+                   measure.vars=c("Yes","No")) %>%
+  group_by(water.quality) %>% 
+  mutate(prop.labs=round(100*value/Total,digit=2)) 
+# removing `general.` from the beginning of each water quality factors
+
+general$water.quality <- gsub("general.","",general$water.quality)
+
+```
+
+### 1. General Water Quality Issues:
+
+```{r}
+# plotting the general responses to the water quality issues 
+
+general_issue<- ggplot(general,aes(water.quality,value,fill=variable))+
+   geom_bar(position="fill",stat="identity",width = 0.4)+scale_y_continuous(labels = c(0,25,50,75,100))+
+  geom_text(aes(label = prop.labs),
+            position = position_fill(vjust=.5), color = "black", size=3)+
+  labs(title="",
+            x= "Water Quality Issues",
+            y="Relative Frequency (%)", fill="Response")+theme_bw()+
+  theme(text = element_text(size=12, face="bold"), legend.position = c(0.07,1.05),
+        legend.direction = "horizontal",
+        legend.title = element_blank(),legend.text = element_text(size=9),
+        legend.key.size = unit(0.2,"cm"))+
+  scale_fill_manual(values=c("#cc444b", "#2d6a4f"))
+general_issue
+```
+
+According to the plot, presence of iron,lack of clarity and health issues (i.e. allergy, hair-fall etc.)are the most common among other other issues.
+
+
+**Zonewise Overall Satisfaction in General** 
+
+We would like to explore the zonewise overall satisfaction with the supplied water quality for those households where the water quality did not change after the pandemic occurrence.
+
+<!-- Summary: -->
+
+```{r message=FALSE}
+# including only those cases where no change has occurred in the water quality
+
+osg <- wq %>%  filter(change.any=="No") %>%
+  select(zone.number,overall.satisfaction)
+
+#summarizing the overall satisfaction grouped by the zone numbers 
+
+general.os <- osg %>%
+  group_by(zone.number) %>% summarise(
+    very.dissatisfied=sum(overall.satisfaction=="Very Dissatisfied"),
+    dissatisfied=sum(overall.satisfaction=="Dissatisfied"),
+    neutral=sum(overall.satisfaction=="Neutral"),
+    satisfied=sum(overall.satisfaction=="Satisfied"),
+    very.satisfied=sum(overall.satisfaction=="Very Satisfied"),
+    Total=n()) 
+
+#coercing the tibble to a data-frame
+
+general.os <- as.data.frame(general.os)
+
+####general.os
+
+general.os <- general.os %>%
+  melt(id.vars=c("zone.number","Total"), 
+                 measure.vars=c("very.dissatisfied",
+                                "dissatisfied","neutral",
+                                "satisfied","very.satisfied"))%>% 
+  group_by(zone.number) %>% mutate(prop.labs=round(100*value/Total,digit=1))
+general.os
+```
+
+### 2. Zonewise Overall Satisfaction with the Supplied Water Quality in General 
+
+```{r}
+ggplot(general.os,aes(x="",value,fill=variable))+
+   geom_bar(position="dodge",stat="identity")+
+  geom_text(aes(label = value),vjust=.5,
+            position = position_dodge(0.9), color = "black", size=2.5)+
+  facet_wrap(~zone.number,nrow=2)+
+  labs(x= "MODS zone",
+            y="Overall Satisfaction", fill="Response")+
+  theme(text = element_text(size=12), axis.text.x = element_text(angle=90,size=9))+theme_bw()
+
+zone_satisfaction <- ggplot(general.os,aes(x="",prop.labs,fill=variable))+
+   geom_bar(position="fill",stat="identity")+scale_y_continuous(labels = c(0,25,50,75,100))+
+  geom_text(aes(label = prop.labs),
+            position = position_fill(vjust=.5), color = "black", size=2.5)+
+  facet_wrap(~zone.number,nrow=1)+theme_bw()+
+  labs(x= "MODS zone",
+            y="Overall Satisfaction (response %)", fill="Response")+
+  theme(text = element_text(size=12,face="bold"), axis.text.x = element_text(angle=90,size=12,face="bold"),legend.position = "top",legend.title = element_blank(),legend.key.size = unit(0.25,"cm"))+
+  scale_fill_manual(values=c("#cc444b", "#F68813", "#FFDA47", "#52b788", "#2d6a4f"))
+zone_satisfaction
+```
+
+The result shows that, zones-3,7 and 8 have relatively higher percentages of `dissatisfied` responses whereas zones-2,4 and 5 have relatively higher `satisfied` responses.
+
+**Overall Satisfaction with the Supplied Water Quality in General Irrespective of MODS Zones**
+
+**Summary:**
+
+<!-- Summary: -->
+
+```{r}
+#overall satisfaction in general
+
+osg1 <- osg %>% select(overall.satisfaction)
+general.os1 <- osg1 %>%
+  summarise(
+    very.dissatisfied=sum(overall.satisfaction=="Very Dissatisfied"),
+    dissatisfied=sum(overall.satisfaction=="Dissatisfied"),
+    neutral=sum(overall.satisfaction=="Neutral"),
+    satisfied=sum(overall.satisfaction=="Satisfied"),
+    very.satisfied=sum(overall.satisfaction=="Very Satisfied")) %>%
+  melt(measure.vars=c("very.dissatisfied","dissatisfied","neutral",
+                                          "satisfied","very.satisfied")) %>%
+  mutate(relative.percentage=round(100*value/sum(value),digit=2))
+ 
+general.os1 <- as.data.frame(general.os1)
+general.os1 <- general.os1 %>% rename(response=variable)
+general.os1
+```
+
+### 3. Overall Satisfaction with the Supplied Water Quality in General Irrespective of MODS Zones
+
+```{r}
+#plotting the overall result
+
+ggplot(general.os1,aes("",value,fill=response))+
+   geom_bar(position="dodge",stat="identity")+
+  geom_text(aes(label = value),vjust=1.6,
+            position = position_dodge(0.9), color = "black", size=3)+
+  labs(x= "Overall Satisfaction",
+            y="Response Frequency", fill="Response")+theme_bw()+
+  theme(text = element_text(size=12))
+```
+
+According to the result, almost 42% respondents are `satisfied`, 25% are `dissatisfied` and rest of the responses are `neutral.`
+
+**Effect of Last Time Cleaning of Plumbing Systems and Tanks on Overall Satisfaction with the Supplied Water Quality in General**  
+
+
+We may like to know if the overall satisfaction is related to the last time the respondent cleaned their plumbing system, tank and reservoir.
+
+<!-- Summary: -->
+
+```{r message=FALSE}
+# including only those cases where no change has occurred in the water quality
+
+osg2 <- wq %>%  filter(change.any=="No") %>%
+  select(last.time.cleaned,overall.satisfaction)
+
+#removing the string ` ago` from the end to make the plot cleaner
+osg2$last.time.cleaned <- gsub(" ago","",osg2$last.time.cleaned)
+
+#summarizing the overall satisfaction grouped by the last time cleaned
+
+general.os2 <- osg2%>%
+  group_by(last.time.cleaned) %>% summarise(
+    very.dissatisfied=sum(overall.satisfaction=="Very Dissatisfied"),
+    dissatisfied=sum(overall.satisfaction=="Dissatisfied"),
+    neutral=sum(overall.satisfaction=="Neutral"),
+    satisfied=sum(overall.satisfaction=="Satisfied"),
+    very.satisfied=sum(overall.satisfaction=="Very Satisfied"),
+    Total=n()) 
+
+####general.os2
+general.os2 <- general.os2%>%
+  melt(id.vars=c("last.time.cleaned","Total"), 
+                 measure.vars=c("very.dissatisfied",
+                                "dissatisfied","neutral",
+                                "satisfied","very.satisfied"))%>% 
+  group_by(last.time.cleaned) %>% mutate(prop.labs=round(100*value/Total,digit=2)) %>%
+  rename(response=variable)
+#coercing the tibble to a data-frame
+
+general.os2 <- as.data.frame(general.os2)
+```
+
+### 4. Effect of Last Time Cleaning of Plumbing Systems and Tanks on Overall Satisfaction with the Supplied Water Quality in General 
+
+```{r}
+#plotting the result
+
+ggplot(general.os2,aes(x="",value,fill=response))+
+   geom_bar(position="dodge",stat="identity")+
+  geom_text(aes(label = value),vjust=1.2,
+            position = position_dodge(0.9), color = "black", size=2.7)+
+  facet_wrap(~last.time.cleaned)+
+  labs(x= "Last time cleaned",
+            y="Overall Satisfaction", fill="Response")+theme_bw()+
+  theme(text = element_text(size=12))
+
+lc_general<- ggplot(general.os2,aes(x="",value,fill=response))+
+   geom_bar(position="fill",stat="identity", width=0.4)+theme_bw()+
+  scale_y_continuous(labels =c(0,25,50,75,100))+
+  geom_text(aes(label = prop.labs),
+            position = position_fill(vjust=.5), color = "black", size=3)+
+  facet_wrap(~last.time.cleaned)+
+  labs(x= "Last time cleaned",
+            y="Overall Satisfaction (response %)",  
+       fill="Response")+
+  theme(text = element_text(size=12,face="bold"), legend.position="top",legend.title=element_blank(),legend.key.size = unit(0.25,"cm"),
+          legend.direction = "horizontal")+
+    scale_fill_manual(values=c("#cc444b", "#F68813", "#FFDA47", "#52b788", "#2d6a4f"))
+lc_general
+```
+
+It can be observed that, those who have cleaned their tanks and reservoirs for the last time within less than 6 months ago are relatively satisfied than the other 2 groups. Those who have cleaned within a month are more dissatisfied which seems to be contradictory to the normal expectation. So, there must be other reason behind this dissatisfaction than the last time they have cleaned them.
+
+**Effect of Water Treatment Method on Overall Satisfaction with the Supplied Water Quality in General**
+
+
+
+Now, let us explore the effect of water treatment method on the overall satisfaction of those who found their water quality to be unchanged during the pandemic.
+
+<!-- Summary: -->
+
+```{r message=FALSE}
+# including only those cases where no change has occurred in the water quality
+
+osg3 <- wq %>%  filter(change.any=="No") %>%
+  select(treatment.method,overall.satisfaction)
+osg3$treatment.method <- gsub(
+  "added |used a |/chlorine| it|water ","",osg3$treatment.method) 
+osg3$treatment.method <- gsub("boil, no treatment","no treatment",osg3$treatment.method)
+#summarizing the overall satisfaction before pandemic grouped by the treatment method
+
+general.os3 <- osg3%>%
+  group_by(treatment.method) %>% summarise(
+    very.dissatisfied=sum(overall.satisfaction=="Very Dissatisfied"),
+    dissatisfied=sum(overall.satisfaction=="Dissatisfied"),
+    neutral=sum(overall.satisfaction=="Neutral"),
+    satisfied=sum(overall.satisfaction=="Satisfied"),
+    very.satisfied=sum(overall.satisfaction=="Very Satisfied"),
+    Total=n()) 
+
+general.os3 <- as.data.frame(general.os3)
+####general.os3
+general.os3 <- general.os3%>%
+  melt(id.vars=c("treatment.method","Total"), 
+                 measure.vars=c("very.dissatisfied",
+                                "dissatisfied","neutral",
+                                "satisfied","very.satisfied"))%>% 
+  group_by(treatment.method) %>% mutate(prop.labs=round(100*value/Total,digit=2)) 
+```
+
+### 5. Effect of Water Treatment Method on Overall Satisfaction with the Supplied Water Quality  in General
+
+```{r}
+#plotting the result
+
+ggplot(general.os3,aes(x="",value,fill=variable))+
+   geom_bar(position="dodge",stat="identity")+
+  geom_text(aes(label = value),vjust=0.5,
+            position = position_dodge(0.9), color = "black", size=3)+
+  facet_wrap(~treatment.method,nrow=2)+theme_bw()+
+  labs(x= "Treatment Method",
+            y="Overall Satisfaction", fill="Response")+
+  theme(text = element_text(size=12))
+
+tr_general<- ggplot(general.os3,aes(x="",value,fill=variable))+
+   geom_bar(position="fill",stat="identity", width=0.5)+
+   scale_y_continuous(labels =c(0,25,50,75,100))+
+  geom_text(aes(label = prop.labs),
+            position = position_fill(vjust=.5), color = "black", size=2.5)+
+  facet_wrap(~treatment.method, nrow=2)+theme_bw()+
+  labs(x= "Treatment Method",
+            y="Overall Satisfaction (response %)", fill="Response")+
+  theme(text = element_text(size=11,face="bold"), legend.position="top",legend.title=element_blank(),legend.key.size = unit(0.25,"cm"),
+             legend.direction = "horizontal")+
+       scale_fill_manual(values=c("#cc444b", "#F68813", "#FFDA47", "#52b788", "#2d6a4f"))
+tr_general
+```
+
+
+Only a few respondents do not treat their water or add bleach/chlorine for treatment. Among the rest, those who boil water are found to be more satisfied with the overall water quality than those who use water filter.
+
+**Overall Satisfaction with the Supplied Water Quality in General Vs. Change in Income**
+
+Now, exploring the effect of income change due to the pandemic on the overall satisfaction of those who found their water quality to be unchanged during the pandemic. 
+
+```{r message=FALSE}
+# including only those cases where no change has occurred in the water quality
+
+osg4 <- wq %>%  filter(change.any=="No") %>%
+  select(economic.change,overall.satisfaction)
+ 
+#summarizing the overall satisfaction before pandemic grouped by the treatment method
+
+general.os4 <- osg4 %>%
+  group_by(economic.change) %>% summarise(
+    very.dissatisfied=sum(overall.satisfaction=="Very Dissatisfied"),
+    dissatisfied=sum(overall.satisfaction=="Dissatisfied"),
+    neutral=sum(overall.satisfaction=="Neutral"),
+    satisfied=sum(overall.satisfaction=="Satisfied"),
+    very.satisfied=sum(overall.satisfaction=="Very Satisfied"),
+    Total=n()) 
+
+general.os4 <- as.data.frame(general.os4)
+####general.os4
+general.os4 <- general.os4%>%
+  melt(id.vars=c("economic.change","Total"), 
+                 measure.vars=c("very.dissatisfied",
+                                "dissatisfied","neutral",
+                                "satisfied","very.satisfied"))%>% 
+  group_by(economic.change) %>% mutate(prop.labs=round(100*value/Total,digit=2))  
+```
+### 6. Overall Satisfaction with the Supplied Water Quality in General Vs. Change in Income
+
+```{r}
+#plotting the result
+
+ggplot(general.os4,aes(x="",value,fill=variable))+
+   geom_bar(position="dodge",stat="identity")+
+  geom_text(aes(label = value),vjust=.5,
+            position = position_dodge(0.9), color = "black", size=3)+
+  facet_wrap(~economic.change,nrow=1)+theme_bw()+
+  labs(x= "Economic Change",
+            y="Overall Satisfaction", fill="Response")+
+  theme(text = element_text(size=12))
+
+economy_general <- ggplot(general.os4,aes(x="",value,fill=variable))+
+   geom_bar(position="fill",stat="identity", width=0.4)+
+  geom_text(aes(label = prop.labs),
+            position = position_fill(vjust=.5), color = "black", size=3)+
+  facet_wrap(~economic.change, nrow=1)+theme_bw()+
+  scale_y_continuous(labels =c(0,25,50,75,100))+
+  labs(x= "Economic Change",
+            y="Overall Satisfaction (response %)", fill="Response")+
+  theme(text = element_text(size=12,face="bold"), legend.position="top",legend.title=element_blank(),legend.key.size = unit(0.25,"cm"),
+            legend.direction = "horizontal")+
+      scale_fill_manual(values=c("#cc444b", "#F68813", "#FFDA47", "#52b788", "#2d6a4f"))
+economy_general
+```
+
+Only a few respondents have an increase in the monthly income after the pandemic. Among the rest, those who have not faced any economic change are found to be more satisfied with the overall water quality than those who have had a decrease in the monthly income.
+
+
+****
+
+
+## iii. Monthly Income, Cleaning Frequency and Overall Satisfaction with the Supplied Water Quality
+
+Next, we will be exploring the effect of underground reservoir and overhead tank cleaning frequency and monthly income on the overall satisfaction of those who found their water quality to be unchanged during the pandemic.
+
+```{r message=FALSE}
+# including only those cases where no change has occurred in the water quality
+
+osg5 <- wq %>%  filter(change.any=="No") %>%
+  select(monthly.income,ug.cleaning.freq,
+         oh.cleaning.freq,overall.satisfaction)
+
+#cleaning ugwr cleaning frequency levels
+osg5$ug.cleaning.freq <- gsub("Do not have a one", "no resevoir",osg5$ug.cleaning.freq)
+osg5$ug.cleaning.freq <- gsub("once in 6 months", "6 months",osg5$ug.cleaning.freq)
+osg5$ug.cleaning.freq <- gsub("once in a year", "1 year",osg5$ug.cleaning.freq)
+osg5$ug.cleaning.freq <- gsub("once in a month", "1 month",osg5$ug.cleaning.freq)
+osg5$ug.cleaning.freq <- gsub("once in 5 years", "5 years",osg5$ug.cleaning.freq) 
+
+#cleaning ohwt cleaning frequency levels
+osg5$oh.cleaning.freq <- gsub("Do not have a one", "no.tank",osg5$oh.cleaning.freq)
+osg5$oh.cleaning.freq <- gsub("once in 6 months", "6months",osg5$oh.cleaning.freq)
+osg5$oh.cleaning.freq <- gsub("once in a year", "1year",osg5$oh.cleaning.freq)
+osg5$oh.cleaning.freq <- gsub("once in a month", "1month",osg5$oh.cleaning.freq)
+osg5$oh.cleaning.freq <- gsub("once in 5 years", "5years",osg5$oh.cleaning.freq) 
+
+#Cleaning monthly income levels
+osg5$monthly.income <- gsub("0~10,000","0~10",osg5$monthly.income)
+osg5$monthly.income <- gsub("10,000~25,000","10~25",osg5$monthly.income)
+osg5$monthly.income <- gsub("25,000~50,000","25~50",osg5$monthly.income)
+osg5$monthly.income <- gsub("50,000~1,00,000","50~100",osg5$monthly.income)
+osg5$monthly.income <- 
+  gsub("1,00,000~higher","100~higher",osg5$monthly.income)
+
+#summarizing the overall satisfaction before pandemic grouped by the monthly income
+
+# both monthly income and cleaning frequency
+
+general.os5 <- osg5 %>%
+  group_by(monthly.income,oh.cleaning.freq,
+           ug.cleaning.freq) %>% summarise(
+    very.dissatisfied=sum(overall.satisfaction=="Very Dissatisfied"),
+    dissatisfied=sum(overall.satisfaction=="Dissatisfied"),
+    neutral=sum(overall.satisfaction=="Neutral"),
+    satisfied=sum(overall.satisfaction=="Satisfied"),
+    very.satisfied=sum(overall.satisfaction=="Very Satisfied"),
+    Total=n()) 
+
+general.os5 <- as.data.frame(general.os5)
+####general.os5
+
+general.os5_1 <- general.os5 %>%
+  melt(id.vars=c("monthly.income","ug.cleaning.freq",
+         "oh.cleaning.freq", "Total"), measure.vars=c("very.dissatisfied",
+              "dissatisfied","neutral","satisfied","very.satisfied")) %>%
+  group_by(monthly.income,oh.cleaning.freq,ug.cleaning.freq) %>%
+  mutate(prop.labs=round(100*value/Total,digit=1)) 
+
+# only cleaning frequency
+
+general.os5_2 <- osg5 %>%
+  group_by(oh.cleaning.freq,
+           ug.cleaning.freq) %>% summarise(
+    very.dissatisfied=sum(overall.satisfaction=="Very Dissatisfied"),
+    dissatisfied=sum(overall.satisfaction=="Dissatisfied"),
+    neutral=sum(overall.satisfaction=="Neutral"),
+    satisfied=sum(overall.satisfaction=="Satisfied"),
+    very.satisfied=sum(overall.satisfaction=="Very Satisfied"),
+    Total=n()) 
+
+general.os5_2 <- as.data.frame(general.os5_2)
+
+general.os5_2 <- general.os5_2 %>%
+  melt(id.vars=c("ug.cleaning.freq",
+         "oh.cleaning.freq", "Total"), measure.vars=c("very.dissatisfied",
+              "dissatisfied","neutral","satisfied","very.satisfied")) %>%
+  group_by(oh.cleaning.freq,ug.cleaning.freq) %>%
+  mutate(prop.labs=round(100*value/Total,digit=1)) 
+
+# only monthly income
+
+general.os5_3 <- osg5 %>%
+  group_by(monthly.income) %>% summarise(
+    very.dissatisfied=sum(overall.satisfaction=="Very Dissatisfied"),
+    dissatisfied=sum(overall.satisfaction=="Dissatisfied"),
+    neutral=sum(overall.satisfaction=="Neutral"),
+    satisfied=sum(overall.satisfaction=="Satisfied"),
+    very.satisfied=sum(overall.satisfaction=="Very Satisfied"),
+    Total=n()) 
+
+general.os5_3 <- as.data.frame(general.os5_3)
+
+general.os5_3 <- general.os5_3 %>%
+  melt(id.vars=c("monthly.income", "Total"), measure.vars=c("very.dissatisfied",
+              "dissatisfied","neutral","satisfied","very.satisfied")) %>%
+  group_by(monthly.income) %>%
+  mutate(prop.labs=round(100*value/Total,digit=1)) 
+
+#relation between monthly income and cleaning frequency
+
+general.os5_4 <- osg5 %>%
+  group_by(oh.cleaning.freq,
+           ug.cleaning.freq) %>% summarise(
+    range_0_10000=sum(monthly.income=="0~10"),
+    range_10000_25000=sum(monthly.income=="10~25"),
+    range_25000_50000=sum(monthly.income=="25~50"),
+    range_50000_100000=sum(monthly.income=="50~100"),
+    range_100000_higher=sum(monthly.income=="100~higher"),
+    Total=n()) 
+
+general.os5_4 <- as.data.frame(general.os5_4)
+
+general.os5_4 <- general.os5_4 %>%
+  melt(id.vars=c("ug.cleaning.freq",
+         "oh.cleaning.freq", "Total"), measure.vars=c("range_0_10000",
+              "range_10000_25000","range_25000_50000","range_50000_100000",
+              "range_100000_higher")) %>%
+  group_by(oh.cleaning.freq,ug.cleaning.freq) %>%
+  mutate(prop.labs=round(100*value/Total,digit=1)) 
+```
+
+### 1. Overall Satisfaction in General Vs. Monthly Income (in thousands) and Cleaning Frequency
+
+```{r}
+#plotting the result
+
+ggplot(general.os5_1,aes(x=monthly.income,value,fill=variable))+
+   geom_bar(position="stack",stat="identity")+
+  scale_x_discrete(limits=c("0~10","10~25","25~50","50~100","100~higher"))+
+  facet_grid(oh.cleaning.freq~ug.cleaning.freq)+
+  theme_bw()+
+  labs(x= "UGWR Cleaning Frequency",
+            y="OHWT Cleaning Frequency", fill="Response")+
+  theme(text = element_text(size=9), axis.text.x = 
+          element_text(angle=90,size=8))
+
+ggplot(general.os5_1,aes(x=monthly.income,value,fill=variable))+
+   geom_bar(position="fill",stat="identity")+
+  scale_x_discrete(limits=c("0~10","10~25","25~50","50~100","100~higher"))+
+  geom_text(aes(label = prop.labs),
+            position = position_fill(vjust=.5), color = "black", size=1.5)+
+  facet_grid(oh.cleaning.freq~ug.cleaning.freq)+
+  theme_bw()+
+  labs(x= "UGWR Cleaning Frequency",
+            y="OHWT Cleaning Frequency", fill="Response")+
+  theme(text = element_text(size=9), axis.text.x = 
+          element_text(angle=90,size=8))
+```
+
+It can be observed that, majority of the respondents belong to the two cells- `1 year~1 year` and `6 months~6 months`. The overall satisfaction of the respondents vs. their monthly income plots does not show any specific pattern throughout the cells.
+
+
+### 2. Overall Satisfaction with the Supplied Water Quality Vs. Cleaning Frequency in General
+
+```{r}
+#plotting the result
+
+ggplot(general.os5_2,aes(x="",value,fill=variable))+
+   geom_bar(position="dodge",stat="identity")+
+  facet_grid(oh.cleaning.freq~ug.cleaning.freq)+
+  theme_bw()+
+  labs(x= "UGWR Cleaning Frequency",
+            y="OHWT Cleaning Frequency", fill="Response")+
+  theme(text = element_text(size=9), axis.text.x = 
+          element_text(angle=90,size=8))
+
+ggplot(general.os5_2,aes(x="",value,fill=variable))+
+   geom_bar(position="fill",stat="identity")+
+  geom_text(aes(label = prop.labs),
+            position = position_fill(vjust=.5), color = "black", size=1.7)+
+  facet_grid(oh.cleaning.freq~ug.cleaning.freq)+
+  theme_bw()+
+  labs(x= "UGWR Cleaning Frequency",
+            y="OHWT Cleaning Frequency", fill="Response")+
+  theme(text = element_text(size=9), axis.text.x = 
+          element_text(angle=90,size=8))
+```
+
+From the plots above it can be observed that between the two major groups of cleaning frequency- `1 year~1 year` and `6 months~6 months`, respondents from the later are more satisfied with the supplied water quality in general.
+
+### 3. Overall Satisfaction with the Supplied Water Quality Vs. Monthly Income in General
+
+```{r}
+#plotting the result
+
+ggplot(general.os5_3,aes(x=monthly.income,value,fill=variable))+
+   geom_bar(position="dodge",stat="identity")+
+  scale_x_discrete(limits=c("0~10","10~25","25~50","50~100","100~higher"))+
+  geom_text(aes(label = value),vjust=0.5,
+            position = position_dodge(0.9), color = "black", size=3)+
+  theme_bw()+
+  labs(x= "Monthly Income (in thousands)",
+            y="Overall Satisfaction", fill="Response")+
+  theme(text = element_text(size=10), axis.text.x = 
+          element_text(angle=90,size=10))
+
+ggplot(general.os5_3,aes(x=monthly.income,value,fill=variable))+
+   geom_bar(position="fill",stat="identity")+
+  scale_x_discrete(limits=c("0~10","10~25","25~50","50~100","100~higher"))+
+  geom_text(aes(label = prop.labs),
+            position = position_fill(vjust=.5), color = "black", size=3)+
+  theme_bw()+
+  labs(x= "Monthly Income (in thousands)",
+            y="Overall Satisfaction (response %)", fill="Response")+
+  theme(text = element_text(size=10), axis.text.x = 
+          element_text(angle=90,size=10))
+```
+According to the the result, overall satisfaction of the respondents increases with their monthly income up to 1,00,00. After that their satisfaction with the supplied water quality is found to be lowered.
+
+### 4. Monthly Income in General Vs. Cleaning Frequency in General
+
+```{r}
+#plotting the result
+
+ggplot(general.os5_4,aes(x="",value,fill=variable))+
+   geom_bar(position="dodge",stat="identity")+
+  facet_grid(oh.cleaning.freq~ug.cleaning.freq)+
+  theme_bw()+ 
+  labs(x= "UGWR Cleaning Frequency",
+            y="OHWT Cleaning Frequency", fill="Monthly Income")+
+  theme(text = element_text(size=9), axis.text.x = 
+          element_text(angle=90,size=8))+scale_fill_brewer(palette =  
+                                                             "YlGnBu")
+
+ggplot(general.os5_4,aes(x="",value,fill=variable))+
+   geom_bar(position="fill",stat="identity")+
+  geom_text(aes(label = prop.labs),
+            position = position_fill(vjust=.5), color = "black", size=1.7)+
+  facet_grid(oh.cleaning.freq~ug.cleaning.freq)+
+  theme_bw()+scale_fill_brewer(palette = "YlGnBu")+
+  labs(x= "UGWR Cleaning Frequency",
+            y="OHWT Cleaning Frequency", fill="Monthly Income")+
+  theme(text = element_text(size=9), axis.text.x = 
+          element_text(angle=90,size=8))
+```
+
+The purpose of the plots above are to observe if respondents with higher income perform more frequent cleaning of their underground reservoirs and overhead tanks which is not the case according to the result. In fact monthly income and cleaning frequency do not show any specific relation
+
+****
+
+## iv. Effect of Water Logging on Other Water Quality Issues and Overall Satisfaction with the Supplied Water Quality
+
+**Zonewise Water Logging in General**
+
+Firstly, we would like to know about the zonewise water logging history. We are going to use a bar-plot to show the relative percentages of water logging for each zone.
+
+**Summary:**
+```{r message=FALSE}
+logging <- wq %>% group_by(zone.number) %>% 
+                      summarise(Total_Households=n(),
+                      Yes=sum(water.logging=="Yes"), 
+                      No=sum(water.logging=="No")) %>%
+  mutate(prop.yes=round(100*Yes/Total_Households,digit=2))
+
+logging <- as.data.frame(logging)
+logging
+
+logging <- logging %>% melt(id.vars=c("zone.number","Total_Households"),
+                            measure.vars=c("Yes","No")) %>%
+  group_by(zone.number) %>% 
+  mutate(prop.labs=round(value*100/Total_Households,digit=2))
+```
+
+
+### 1. Zonewise Water Logging in General
+
+```{r message=FALSE}
+logging<- ggplot(data=logging, aes(x=zone.number,value, fill=variable))+
+geom_bar(position="fill",stat="identity")+
+  geom_text(aes(label=prop.labs),position=position_fill(vjust=0.5),
+            color="black",size=3)+theme_bw()+scale_y_continuous(labels = c(0,25,50,75,100))+
+       labs(title="", 
+            x= "MODS zone",
+            y="Water Logging (response %)", fill="Response")+
+  theme(text = element_text(size=12, face="bold"),legend.position = c(0.08,1.05),legend.direction = "horizontal",legend.title = element_blank(),legend.key.size = unit(0.25,"cm"))+
+   scale_fill_manual(values=c("#cc444b", "#2d6a4f"))
+logging
+```
+
+Zones- 1,8 and 10 show higher percentage of `Yes` responses to water logging. Except zones 5 and 9 all the zones have more than 50% `Yes` responses.
+
+**Effect of Water Logging on Overall Satisfaction with the Supplied Water Quality**
+
+Now, we would like to know if water logging causes dissatisfaction with the supplied water quality.
+
+```{r message=FALSE}
+# including only those cases where no change has occurred in the water quality 
+
+osg6 <- wq %>%  filter(change.any=="No") %>%
+  select(water.logging,overall.satisfaction)
+
+#summarizing the overall satisfaction before pandemic grouped by the treatment method
+
+general.os6 <- osg6 %>%
+  group_by(water.logging) %>% summarise(
+    very.dissatisfied=sum(overall.satisfaction=="Very Dissatisfied"),
+    dissatisfied=sum(overall.satisfaction=="Dissatisfied"),
+    neutral=sum(overall.satisfaction=="Neutral"),
+    satisfied=sum(overall.satisfaction=="Satisfied"),
+    very.satisfied=sum(overall.satisfaction=="Very Satisfied"),
+    Total=n()) %>% mutate(water.logging=
+                            factor(c("No","Yes"), levels=c("Yes","No")))
+
+general.os6 <- as.data.frame(general.os6)
+
+####general.os6
+general.os6 <- general.os6%>%
+  melt(id.vars=c("water.logging","Total"), 
+                 measure.vars=c("very.dissatisfied",
+                                "dissatisfied","neutral",
+                                "satisfied","very.satisfied"))%>% 
+  group_by(water.logging) %>% mutate(prop.labs=round(100*value/Total,digit=2)) 
+```
+### 2. Overall Satisfaction with the Supplied Water Quality Vs. Water Logging in General
+
+```{r}
+ggplot(general.os6,aes(x="",value,fill=variable))+
+   geom_bar(position="dodge",stat="identity")+
+  geom_text(aes(label = value),vjust=.5,
+            position = position_dodge(0.9), color = "black", size=3)+
+  facet_wrap(~water.logging,nrow=1)+theme_bw()+
+  labs(title="",
+            x= "Water Logging",
+            y="Overall Satisfaction", fill="Response")+
+  theme(text = element_text(size=12))
+
+ggplot(general.os6,aes(x="",value,fill=variable))+
+   geom_bar(position="fill",stat="identity")+
+  geom_text(aes(label = prop.labs),
+            position = position_fill(vjust=.5), color = "black", size=3)+
+  facet_wrap(~water.logging, nrow=1)+theme_bw()+
+  labs(title="",
+            x= "Water Logging",
+            y="Overall Satisfaction (response %)", fill="Response")+
+  theme(text = element_text(size=12))
+```
+
+So, the respondents who have faced water logging in their area of residence are overall less satisfied with the supplied water quality.
+
+**Effect of Water Logging on Other Water Quality Issues**
+
+Now we would like to know if presence of water logging in the area is related to supplied water quality problems.
+
+**Summary:**
+```{r message=FALSE}
+#filtering out responses with change in wter quality during the pandemic
+wql <- wq %>% filter(change.any=="No") %>% select(water.logging,23:27)
+# creating a long data-frame by melting the `general water quality` columns
+
+wql <- wql %>% 
+  melt(id.vars=c("water.logging"),
+                measure.vars = c("general.foul.taste","general.foul.smell", 
+                                 "general.low.clarity","general.iron", 
+                                 "general.health.issues")) %>%   
+  rename(water.quality= variable) 
+
+# summarizing the `wql` data-frame based on the `general water quality` values
+
+general.wql <- wql %>% group_by(water.logging,water.quality) %>%  
+    summarise(Yes=sum(value=="Yes"), No=sum(value=="No"),
+              Total=n()) %>% 
+    mutate(prop.yes=round(100*Yes/(Yes+No),digit=2))
+
+general.wql <- as.data.frame(general.wql)
+general.wql
+
+# coercing the summary tibble to a data-frame 
+
+general.wql <- general.wql %>%   
+              melt(id.vars=c("water.quality","Total", "water.logging"),
+                   measure.vars=c("Yes","No")) %>%
+  group_by(water.quality) %>% 
+  mutate(prop.labs=round(100*value/Total,digit=2))
+  general.wql<- general.wql %>%
+   mutate(water.logging=factor(rep(rep(c("No","Yes"),each=1),2),
+                              levels=c("Yes","No")))
+#removing `general.` from the beginning of each water quality factors
+
+general.wql$water.quality <- gsub("general.","",general.wql$water.quality)
+```
+
+### 3. Response to Water Quality Issues Vs. Water Logging
+
+```{r}
+# plotting comparison of the responses to the water quality issues before and after the pandemic situation
+
+ggplot(general.wql,aes(water.logging,value,fill=variable))+
+   geom_bar(position="fill",stat="identity")+
+  geom_text(aes(label = prop.labs),
+            position = position_fill(vjust=0.5), color = "black", size=3)+
+  facet_wrap(~water.quality,nrow=1)+
+  labs(title="",
+            x= "Water Logging",
+            y="Water Quality Issues (response %)", fill="Response")+
+  theme_bw()+
+  theme(text = element_text(size=12), axis.text.x = element_text(angle=90))
+```
+
+The barplot shows that with the presence of water logging, there is higher percentages of other water quality issues than in the no water logging cases.
+
+****
+<div>
+### Installation Details:
+<ul> 
+<li>R Version 4.0.2 (2020-06-22)</li>
+<li>RStudio Version 1.3.959</li>
+<li>knitr 1.29</li>
+<li>rmarkdown 2.3</li>
+<li>htmltools 0.5.0</li>
+<li>dplyr 1.0.1 </li>
+<li>ggplot2 3.3.2 </li>
+<li>Reshape2 1.4.4</li>
+<li>RColorBrewer 1.1-2</li>
+<li>statsr 0.2.1</li>
+<li>Windows 10</li>
+</ul>
+</div>
